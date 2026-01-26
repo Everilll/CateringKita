@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// Core Authentication
+model users {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique @db.VarChar(100)
+  password   String    @db.VarChar(255)
+  name       String    @db.VarChar(100)
+  role       user_role @default(USER)
+  created_at DateTime  @default(now()) @db.Timestamp(0)
+  updated_at DateTime  @updatedAt @db.Timestamp(0)
+  
+  customer   customers?
+  vendor     vendors?
+
+  @@index([email])
+}
+
+// Customer Profile
+model customers {
+  id         Int       @id @default(autoincrement())
+  user_id    Int       @unique
+  phone      String    @unique @db.VarChar(20)
+  address    String?   @db.Text
+  city       String?   @db.VarChar(100)
+  created_at DateTime  @default(now()) @db.Timestamp(0)
+  updated_at DateTime  @updatedAt @db.Timestamp(0)
+  
+  user       users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  orders     orders[]
+  reviews    reviews[]
+
+  @@index([phone])
+}
+
+// Vendor Profile
+model vendors {
+  id          Int       @id @default(autoincrement())
+  user_id     Int       @unique
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  address     String    @db.VarChar(255)
+  city        String    @db.VarChar(100)
+  phone       String    @db.VarChar(20)
+  image_url   String?   @db.VarChar(255)
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now()) @db.Timestamp(0)
+  updated_at  DateTime  @updatedAt @db.Timestamp(0)
+  
+  user        users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  menus       menus[]
+  orders      orders[]
+  reviews     reviews[]
+
+  @@index([city])
+  @@index([is_active])
+}
+
+// Menu Categories
+model categories {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(50)
+  description String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  
+  menus       menus[]
+}
+
+// Menu Items
+model menus {
+  id          Int           @id @default(autoincrement())
+  vendor_id   Int
+  category_id Int?
+  name        String        @db.VarChar(100)
+  description String?       @db.Text
+  price       Decimal       @db.Decimal(10, 2)
+  calories    Int?
+  image_url   String?       @db.VarChar(255)
+  available   Boolean       @default(true)
+  created_at  DateTime      @default(now()) @db.Timestamp(0)
+  updated_at  DateTime      @updatedAt @db.Timestamp(0)
+  
+  vendor      vendors       @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  category    categories?   @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  order_items order_items[]
+
+  @@index([vendor_id])
+  @@index([category_id])
+  @@index([available])
+}
+
+// Orders
+model orders {
+  id           Int            @id @default(autoincrement())
+  customer_id  Int
+  vendor_id    Int
+  total        Decimal        @db.Decimal(10, 2)
+  status       orders_status  @default(pending)
+  notes        String?        @db.Text
+  delivery_fee Decimal?       @default(0) @db.Decimal(10, 2)
+  created_at   DateTime       @default(now()) @db.Timestamp(0)
+  updated_at   DateTime       @updatedAt @db.Timestamp(0)
+  
+  customer     customers      @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  vendor       vendors        @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  order_items  order_items[]
+  payment      payments?
+  review       reviews?
+
+  @@index([customer_id])
+  @@index([vendor_id])
+  @@index([status])
+  @@index([created_at])
+}
+
+// Order Items
+model order_items {
+  id         Int     @id @default(autoincrement())
+  order_id   Int
+  menu_id    Int
+  quantity   Int
+  price      Decimal @db.Decimal(10, 2) // harga saat order dibuat
+  subtotal   Decimal @db.Decimal(10, 2)
+  
+  order      orders  @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  menu       menus   @relation(fields: [menu_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id])
+  @@index([menu_id])
+}
+
+// Payments
+model payments {
+  id             Int            @id @default(autoincrement())
+  order_id       Int            @unique
+  amount         Decimal        @db.Decimal(10, 2)
+  payment_method payment_method
+  status         payment_status @default(pending)
+  paid_at        DateTime?      @db.Timestamp(0)
+  created_at     DateTime       @default(now()) @db.Timestamp(0)
+  
+  order          orders         @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// Reviews
+model reviews {
+  id          Int      @id @default(autoincrement())
+  order_id    Int      @unique
+  customer_id Int
+  vendor_id   Int
+  rating      Int      // 1-5
+  comment     String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  
+  order       orders    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  customer    customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  vendor      vendors   @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([rating])
+}
+
+// Enums
+enum orders_status {
+  pending
+  confirmed
+  preparing
+  ready
+  on_delivery
+  delivered
+  cancelled
+}
+
+enum payment_method {
+  cash
+  transfer
+  ewallet
+}
+
+enum payment_status {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum user_role {
+  USER
+  VENDOR
+  ADMIN
+}
