@@ -1,4 +1,12 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateCategoryDto } from './create-category.dto';
+import { IsString, IsOptional, MaxLength } from 'class-validator';
 
-export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}
+export class UpdateCategoryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
