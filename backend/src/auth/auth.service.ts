@@ -24,6 +24,10 @@ export class AuthService {
     try {
       const { email, password, name, role } = registerDto;
 
+      if (role !== UserRole.CUSTOMER && role !== UserRole.VENDOR) {
+        throw new BadRequestException('Role harus CUSTOMER atau VENDOR');
+      }
+
       // Check existing email
       const existingUser = await this.prisma.users.findUnique({
         where: { email }

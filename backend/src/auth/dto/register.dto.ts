@@ -1,9 +1,9 @@
 import { 
-  IsEmail, 
-  IsNotEmpty, 
-  IsString, 
-  MinLength, 
-  IsEnum, 
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsEnum,
   IsOptional,
   ValidateIf,
   Matches
