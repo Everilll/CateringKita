@@ -1,34 +1,64 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Delete,
+  Body,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorators';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('customers')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
-  @Post()
-  create(@Body() createCustomerDto: CreateCustomerDto) {
-    return this.customersService.create(createCustomerDto);
-  }
-
+  // Get all customers (admin only)
   @Get()
+  @Roles('ADMIN')
   findAll() {
     return this.customersService.findAll();
   }
 
+  // Get customer detail
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.customersService.findOne(+id);
+  @Roles('CUSTOMER', 'ADMIN')
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') role: string,
+  ) {
+    return this.customersService.findOne(id, userId, role);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
-    return this.customersService.update(+id, updateCustomerDto);
+  // Update customer profile (owner only)
+  @Patch()
+  @Roles('CUSTOMER')
+  update(
+    @CurrentUser('id') userId: number,
+    @Body() updateCustomerDto: UpdateCustomerDto,
+  ) {
+    return this.customersService.update(userId, updateCustomerDto);
   }
 
+  // Delete own account (customer)
+  @Delete()
+  @Roles('CUSTOMER')
+  removeSelf(@CurrentUser('id') userId: number) {
+    return this.customersService.removeSelf(userId);
+  }
+
+  // Delete customer by ID (admin only)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.customersService.remove(+id);
+  @Roles('ADMIN')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.customersService.remove(id);
   }
 }
