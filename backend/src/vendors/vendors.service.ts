@@ -184,23 +184,45 @@ export class VendorsService {
     };
   }
 
+  async removeSelf(userId: number) {
+    const vendor = await this.prisma.vendors.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor profile tidak ditemukan');
+    }
+
+    // Delete user (cascades to vendor)
+    await this.prisma.users.delete({
+      where: { id: userId },
+    });
+
+    return {
+      message: 'Account berhasil dihapus',
+    };
+  }
+
   async remove(id: number) {
     // Check if vendor exists
     const vendor = await this.prisma.vendors.findUnique({
       where: { id },
+      include: {
+        user: true,
+      },
     });
 
     if (!vendor) {
       throw new NotFoundException(`Vendor dengan ID ${id} tidak ditemukan`);
     }
 
-    // Delete vendor (will cascade to related data)
-    await this.prisma.vendors.delete({
-      where: { id },
+    // Delete user (will cascade to vendor and related data)
+    await this.prisma.users.delete({
+      where: { id: vendor.user_id },
     });
 
     return {
-      message: 'Vendor berhasil dihapus',
+      message: 'Vendor dan akun user berhasil dihapus',
     };
   }
 

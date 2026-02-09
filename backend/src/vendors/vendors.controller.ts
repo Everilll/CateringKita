@@ -55,7 +55,15 @@ export class VendorsController {
     return this.vendorsService.update(userId, updateVendorDto);
   } 
 
-  // Delete vendor (admin only)
+  // Delete own account (vendor)
+  @Delete()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('VENDOR')
+  removeSelf(@CurrentUser('id') userId: number) {
+    return this.vendorsService.removeSelf(userId);
+  }
+
+  // Delete vendor by ID (admin only)
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
