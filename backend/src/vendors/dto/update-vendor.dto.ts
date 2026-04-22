@@ -24,4 +24,9 @@ export class UpdateVendorDto {
   @IsString()
   @MaxLength(255)
   image_url?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  banner_url?: string;
 }

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { QueryVendorDto } from './dto/query-vendor.dto';
+import { CreateVendorRatingDto } from './dto/create-vendor-rating.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -21,11 +22,10 @@ export class VendorsService {
         user: {
           select: {
             id: true,
-            email: true,
             name: true,
           },
         },
-        reviews: {
+        vendor_ratings: {
           select: {
             rating: true,
           },
@@ -46,8 +46,8 @@ export class VendorsService {
     const vendorsWithRating = vendors
       .map((vendor) => {
         const avgRating =
-          vendor.reviews.length > 0
-            ? vendor.reviews.reduce((sum, r) => sum + r.rating, 0) / vendor.reviews.length
+          vendor.vendor_ratings.length > 0
+            ? vendor.vendor_ratings.reduce((sum, r) => sum + r.rating, 0) / vendor.vendor_ratings.length
             : 0;
 
         return {
@@ -59,12 +59,13 @@ export class VendorsService {
           city: vendor.city,
           phone: vendor.phone,
           image_url: vendor.image_url,
+          banner_url: vendor.banner_url,
           is_active: vendor.is_active,
           created_at: vendor.created_at,
           updated_at: vendor.updated_at,
           user: vendor.user,
           avgRating: Number(avgRating.toFixed(1)),
-          totalReviews: vendor.reviews.length,
+          totalRatings: vendor.vendor_ratings.length,
           totalMenus: vendor._count.menus,
           totalOrders: vendor._count.orders,
         };
@@ -84,7 +85,6 @@ export class VendorsService {
         user: {
           select: {
             id: true,
-            email: true,
             name: true,
           },
         },
@@ -99,7 +99,7 @@ export class VendorsService {
             name: 'asc',
           },
         },
-        reviews: {
+        vendor_ratings: {
           include: {
             customer: {
               include: {
@@ -121,6 +121,7 @@ export class VendorsService {
             menus: true,
             orders: true,
             reviews: true,
+            vendor_ratings: true,
           },
         },
       },
@@ -132,12 +133,12 @@ export class VendorsService {
 
     // Calculate average rating
     const avgRating =
-      vendor.reviews.length > 0
-        ? vendor.reviews.reduce((sum, r) => sum + r.rating, 0) / vendor.reviews.length
+      vendor.vendor_ratings.length > 0
+        ? vendor.vendor_ratings.reduce((sum, r) => sum + r.rating, 0) / vendor.vendor_ratings.length
         : 0;
 
     // Format reviews
-    const formattedReviews = vendor.reviews.map((review) => ({
+    const formattedRatings = vendor.vendor_ratings.map((review) => ({
       id: review.id,
       rating: review.rating,
       comment: review.comment,
@@ -148,8 +149,8 @@ export class VendorsService {
     return {
       ...vendor,
       avgRating: Number(avgRating.toFixed(1)),
-      totalReviews: vendor._count.reviews,
-      reviews: formattedReviews,
+      totalRatings: vendor._count.vendor_ratings,
+      ratings: formattedRatings,
     };
   }
 
@@ -321,6 +322,95 @@ export class VendorsService {
       },
       statistics: stats,
       data: orders,
+    };
+  }
+
+  async findVendorRatings(vendorId: number) {
+    const vendor = await this.prisma.vendors.findUnique({
+      where: { id: vendorId },
+      select: { id: true, name: true },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException(`Vendor dengan ID ${vendorId} tidak ditemukan`);
+    }
+
+    const ratings = await this.prisma.vendor_ratings.findMany({
+      where: { vendor_id: vendorId },
+      include: {
+        customer: {
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const avgRating =
+      ratings.length > 0
+        ? ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length
+        : 0;
+
+    return {
+      vendor,
+      avgRating: Number(avgRating.toFixed(1)),
+      totalRatings: ratings.length,
+      data: ratings.map((row) => ({
+        id: row.id,
+        rating: row.rating,
+        comment: row.comment,
+        created_at: row.created_at,
+        customerName: row.customer.user.name,
+      })),
+    };
+  }
+
+  async rateVendor(userId: number, vendorId: number, dto: CreateVendorRatingDto) {
+    const customer = await this.prisma.customers.findUnique({
+      where: { user_id: userId },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer profile tidak ditemukan');
+    }
+
+    const vendor = await this.prisma.vendors.findUnique({
+      where: { id: vendorId },
+      select: { id: true, name: true },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException(`Vendor dengan ID ${vendorId} tidak ditemukan`);
+    }
+
+    const rating = await this.prisma.vendor_ratings.upsert({
+      where: {
+        customer_id_vendor_id: {
+          customer_id: customer.id,
+          vendor_id: vendorId,
+        },
+      },
+      update: {
+        rating: dto.rating,
+        comment: dto.comment,
+      },
+      create: {
+        customer_id: customer.id,
+        vendor_id: vendorId,
+        rating: dto.rating,
+        comment: dto.comment,
+      },
+    });
+
+    return {
+      message: `Rating vendor ${vendor.name} berhasil disimpan`,
+      data: rating,
     };
   }
 }

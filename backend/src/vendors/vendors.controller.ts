@@ -14,6 +14,7 @@ import { VendorsService } from './vendors.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { QueryVendorDto } from './dto/query-vendor.dto';
+import { CreateVendorRatingDto } from './dto/create-vendor-rating.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
@@ -75,5 +76,23 @@ export class VendorsController {
   @Get(':id/menus')
   findVendorMenus(@Param('id', ParseIntPipe) id: number) {
     return this.vendorsService.findVendorMenus(id);
+  }
+
+  // Get vendor ratings (public)
+  @Get(':id/ratings')
+  findVendorRatings(@Param('id', ParseIntPipe) id: number) {
+    return this.vendorsService.findVendorRatings(id);
+  }
+
+  // Create or update my vendor rating (customer only)
+  @Post(':id/ratings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('CUSTOMER')
+  rateVendor(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @Body() dto: CreateVendorRatingDto,
+  ) {
+    return this.vendorsService.rateVendor(userId, id, dto);
   }
 }
