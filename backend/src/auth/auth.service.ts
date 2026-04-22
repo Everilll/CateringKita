@@ -88,11 +88,13 @@ export class AuthService {
             vendor_address, 
             vendor_city, 
             vendor_phone, 
-            description 
+            description,
+            vendor_image_url,
+            vendor_banner_url,
           } = registerDto;
 
-          if (!vendor_name || !vendor_address || !vendor_phone) {
-            throw new BadRequestException('Nama, alamat, dan telepon vendor wajib diisi');
+          if (!vendor_name || !vendor_address || !vendor_phone || !vendor_banner_url) {
+            throw new BadRequestException('Nama, alamat, telepon, dan banner vendor wajib diisi');
           }
 
           const vendor = await tx.vendors.create({
@@ -102,7 +104,9 @@ export class AuthService {
               address: vendor_address,
               city: vendor_city || '',
               phone: vendor_phone,
-              description
+              description,
+              image_url: vendor_image_url,
+              banner_url: vendor_banner_url,
             }
           });
 

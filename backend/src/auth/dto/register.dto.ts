@@ -6,7 +6,8 @@ import {
   IsEnum,
   IsOptional,
   ValidateIf,
-  Matches
+  Matches,
+  IsUrl
 } from 'class-validator';
 
 export enum UserRole {
@@ -17,7 +18,7 @@ export enum UserRole {
 export class RegisterDto {
   @IsEmail({}, { message: 'Email tidak valid' })
   @IsNotEmpty({ message: 'Email wajib diisi' })
-  email: string;
+  email!: string;
 
   @IsString()
   @MinLength(8, { message: 'Password minimal 8 karakter' })
@@ -28,15 +29,15 @@ export class RegisterDto {
     }
   )
   @IsNotEmpty({ message: 'Password wajib diisi' })
-  password: string;
+  password!: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Nama wajib diisi' })
-  name: string;
+  name!: string;
 
   @IsEnum(UserRole, { message: 'Role harus USER atau VENDOR' })
   @IsNotEmpty({ message: 'Role wajib diisi' })
-  role: UserRole;
+  role!: UserRole;
 
   // Customer fields
   @ValidateIf(o => o.role === UserRole.CUSTOMER)
@@ -73,7 +74,17 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'Telepon vendor wajib diisi' })
   vendor_phone?: string;
 
+  @ValidateIf(o => o.role === UserRole.VENDOR)
+  @IsUrl({}, { message: 'URL banner vendor tidak valid' })
+  @IsNotEmpty({ message: 'Banner vendor wajib diisi' })
+  vendor_banner_url?: string;
+
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ValidateIf(o => o.role === UserRole.VENDOR && !!o.vendor_image_url)
+  @IsUrl({}, { message: 'URL foto vendor tidak valid' })
+  @IsOptional()
+  vendor_image_url?: string;
 }
