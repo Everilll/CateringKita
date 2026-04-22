@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { QueryMenuDto } from './dto/query-menu.dto';
+import { CreateMenuRatingDto } from './dto/create-menu-rating.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -68,13 +69,31 @@ export class MenusService {
       include: {
         vendor: { select: { id: true, name: true, city: true } },
         category: { select: { id: true, name: true } },
+        menu_ratings: {
+          select: {
+            rating: true,
+          },
+        },
       },
       orderBy: { created_at: 'desc' },
     });
 
+    const formattedMenus = menus.map((menu) => {
+      const avgRating =
+        menu.menu_ratings.length > 0
+          ? menu.menu_ratings.reduce((sum, row) => sum + row.rating, 0) / menu.menu_ratings.length
+          : 0;
+
+      return {
+        ...menu,
+        avgRating: Number(avgRating.toFixed(1)),
+        totalRatings: menu.menu_ratings.length,
+      };
+    });
+
     return {
-      data: menus,
-      total: menus.length,
+      data: formattedMenus,
+      total: formattedMenus.length,
     };
   }
 
@@ -90,9 +109,27 @@ export class MenusService {
             address: true,
             phone: true,
             image_url: true,
+            banner_url: true,
           },
         },
         category: true,
+        menu_ratings: {
+          include: {
+            customer: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            created_at: 'desc',
+          },
+          take: 10,
+        },
       },
     });
 
@@ -100,7 +137,25 @@ export class MenusService {
       throw new NotFoundException(`Menu dengan ID ${id} tidak ditemukan`);
     }
 
-    return { data: menu };
+    const avgRating =
+      menu.menu_ratings.length > 0
+        ? menu.menu_ratings.reduce((sum, row) => sum + row.rating, 0) / menu.menu_ratings.length
+        : 0;
+
+    return {
+      data: {
+        ...menu,
+        avgRating: Number(avgRating.toFixed(1)),
+        totalRatings: menu.menu_ratings.length,
+        ratings: menu.menu_ratings.map((row) => ({
+          id: row.id,
+          rating: row.rating,
+          comment: row.comment,
+          created_at: row.created_at,
+          customerName: row.customer.user.name,
+        })),
+      },
+    };
   }
 
   async update(id: number, userId: number, updateMenuDto: UpdateMenuDto) {
@@ -199,6 +254,95 @@ export class MenusService {
     return {
       message: `Menu berhasil di-${updated.available ? 'aktifkan' : 'nonaktifkan'}`,
       data: updated,
+    };
+  }
+
+  async findMenuRatings(menuId: number) {
+    const menu = await this.prisma.menus.findUnique({
+      where: { id: menuId },
+      select: { id: true, name: true },
+    });
+
+    if (!menu) {
+      throw new NotFoundException(`Menu dengan ID ${menuId} tidak ditemukan`);
+    }
+
+    const ratings = await this.prisma.menu_ratings.findMany({
+      where: { menu_id: menuId },
+      include: {
+        customer: {
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const avgRating =
+      ratings.length > 0
+        ? ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length
+        : 0;
+
+    return {
+      menu,
+      avgRating: Number(avgRating.toFixed(1)),
+      totalRatings: ratings.length,
+      data: ratings.map((row) => ({
+        id: row.id,
+        rating: row.rating,
+        comment: row.comment,
+        created_at: row.created_at,
+        customerName: row.customer.user.name,
+      })),
+    };
+  }
+
+  async rateMenu(userId: number, menuId: number, dto: CreateMenuRatingDto) {
+    const customer = await this.prisma.customers.findUnique({
+      where: { user_id: userId },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer profile tidak ditemukan');
+    }
+
+    const menu = await this.prisma.menus.findUnique({
+      where: { id: menuId },
+      select: { id: true, name: true },
+    });
+
+    if (!menu) {
+      throw new NotFoundException(`Menu dengan ID ${menuId} tidak ditemukan`);
+    }
+
+    const rating = await this.prisma.menu_ratings.upsert({
+      where: {
+        customer_id_menu_id: {
+          customer_id: customer.id,
+          menu_id: menuId,
+        },
+      },
+      update: {
+        rating: dto.rating,
+        comment: dto.comment,
+      },
+      create: {
+        customer_id: customer.id,
+        menu_id: menuId,
+        rating: dto.rating,
+        comment: dto.comment,
+      },
+    });
+
+    return {
+      message: `Rating menu ${menu.name} berhasil disimpan`,
+      data: rating,
     };
   }
 }

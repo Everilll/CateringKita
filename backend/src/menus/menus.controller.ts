@@ -14,6 +14,7 @@ import { MenusService } from './menus.service';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { QueryMenuDto } from './dto/query-menu.dto';
+import { CreateMenuRatingDto } from './dto/create-menu-rating.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
@@ -33,6 +34,24 @@ export class MenusController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.menusService.findOne(id);
+  }
+
+  // Get menu ratings (public)
+  @Get(':id/ratings')
+  findMenuRatings(@Param('id', ParseIntPipe) id: number) {
+    return this.menusService.findMenuRatings(id);
+  }
+
+  // Create or update my menu rating (customer only)
+  @Post(':id/ratings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('CUSTOMER')
+  rateMenu(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @Body() dto: CreateMenuRatingDto,
+  ) {
+    return this.menusService.rateMenu(userId, id, dto);
   }
 
   // Create menu (vendor only)
