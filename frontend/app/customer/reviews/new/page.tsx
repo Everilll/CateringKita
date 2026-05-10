@@ -6,6 +6,8 @@ import { MessageSquareText, Star, Store, ArrowRight, CheckCircle2 } from 'lucide
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
+export const dynamic = 'force-dynamic'
+
 type OrderDetail = {
   id: number
   vendor: { id: number; name: string }
