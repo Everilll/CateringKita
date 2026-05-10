@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { MessageSquareText, Star, Store, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,23 @@ type OrderDetail = {
 }
 
 export default function CustomerNewReviewPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className='min-h-screen bg-muted/30 px-4 py-10 sm:px-6 lg:px-8'>
+          <div className='mx-auto max-w-2xl animate-pulse space-y-6'>
+            <div className='h-32 rounded-3xl bg-muted' />
+            <div className='h-96 rounded-2xl bg-muted' />
+          </div>
+        </main>
+      }
+    >
+      <CustomerNewReviewContent />
+    </Suspense>
+  )
+}
+
+function CustomerNewReviewContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderId = searchParams.get('orderId')
